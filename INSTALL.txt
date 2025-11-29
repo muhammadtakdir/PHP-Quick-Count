@@ -1,0 +1,518 @@
+================================================================================
+                    PANDUAN INSTALASI - QUICK COUNT SYSTEM
+                    Aplikasi Hitung Cepat Pemilihan
+================================================================================
+
+Versi: 2.0.0
+Terakhir Update: November 2025
+
+================================================================================
+                         DAFTAR ISI
+================================================================================
+
+1. Persyaratan Sistem
+2. Instalasi di Windows dengan XAMPP
+3. Instalasi di Web Server (cPanel/VPS)
+4. Konfigurasi Database
+5. Konfigurasi Aplikasi
+6. Troubleshooting
+7. Keamanan Produksi
+
+================================================================================
+                    1. PERSYARATAN SISTEM
+================================================================================
+
+MINIMUM REQUIREMENTS:
+- PHP versi 7.4 atau lebih tinggi (disarankan PHP 8.0+)
+- MySQL 5.7 / MariaDB 10.3 atau lebih tinggi
+- Web Server: Apache atau Nginx
+- Browser modern (Chrome, Firefox, Edge, Safari)
+
+PHP EXTENSIONS YANG DIPERLUKAN:
+- mysqli
+- pdo_mysql
+- gd (untuk upload gambar)
+- mbstring
+- json
+- session
+
+KAPASITAS DISK:
+- Aplikasi: ~50 MB
+- Database: Tergantung jumlah data (minimal 100 MB)
+- Upload: Tergantung jumlah foto C1 (siapkan 1 GB+)
+
+================================================================================
+                    2. INSTALASI DI WINDOWS DENGAN XAMPP
+================================================================================
+
+LANGKAH 1: Install XAMPP
+─────────────────────────
+1. Download XAMPP dari https://www.apachefriends.org/
+2. Jalankan installer, pilih komponen:
+   - Apache
+   - MySQL
+   - PHP
+   - phpMyAdmin
+3. Install ke direktori default: C:\xampp
+4. Selesaikan instalasi
+
+LANGKAH 2: Jalankan XAMPP
+─────────────────────────
+1. Buka XAMPP Control Panel
+2. Start Apache (klik tombol Start)
+3. Start MySQL (klik tombol Start)
+4. Pastikan status berubah menjadi hijau
+
+LANGKAH 3: Copy File Aplikasi
+─────────────────────────────
+1. Download/extract file aplikasi Quick Count
+2. Copy seluruh folder aplikasi ke: C:\xampp\htdocs\
+3. Rename folder menjadi nama yang diinginkan, misal: quickcount
+   Hasil: C:\xampp\htdocs\quickcount\
+
+LANGKAH 4: Buat Database
+────────────────────────
+1. Buka browser, akses: http://localhost/phpmyadmin
+2. Klik tab "Databases" di bagian atas
+3. Pada kolom "Create database", ketik: quickcount
+4. Pilih Collation: utf8mb4_general_ci
+5. Klik tombol "Create"
+
+LANGKAH 5: Import Database
+──────────────────────────
+1. Di phpMyAdmin, klik database "quickcount" di sidebar kiri
+2. Klik tab "Import" di bagian atas
+3. Klik "Choose File" dan pilih file: database/quickcount.sql
+   (atau bone.sql jika menggunakan nama tersebut)
+4. Scroll ke bawah, klik tombol "Import"
+5. Tunggu hingga muncul pesan sukses
+
+LANGKAH 6: Konfigurasi Koneksi Database
+───────────────────────────────────────
+1. Buka file: C:\xampp\htdocs\quickcount\config\database.php
+2. Edit sesuai konfigurasi:
+
+   <?php
+   define('DB_HOST', 'localhost');
+   define('DB_USER', 'root');
+   define('DB_PASS', '');              // Kosong untuk XAMPP default
+   define('DB_NAME', 'quickcount');
+   ?>
+
+3. Simpan file
+
+LANGKAH 7: Konfigurasi URL Aplikasi
+───────────────────────────────────
+1. Buka file: C:\xampp\htdocs\quickcount\config\config.php
+2. Cari baris APP_URL dan sesuaikan:
+
+   define('APP_URL', 'http://localhost/quickcount/');
+
+3. Simpan file
+
+LANGKAH 8: Set Permission Folder Upload
+───────────────────────────────────────
+Di Windows, biasanya tidak perlu setting permission.
+Pastikan folder berikut ada dan bisa ditulis:
+- uploads/
+- uploads/calon/
+- uploads/c1/
+- uploads/users/
+
+Jika folder tidak ada, buat manual atau akses aplikasi 
+(folder akan dibuat otomatis).
+
+LANGKAH 9: Akses Aplikasi
+─────────────────────────
+1. Buka browser
+2. Akses: http://localhost/quickcount/
+3. Login dengan:
+   - Username: admin
+   - Password: admin123
+
+SELESAI! Aplikasi siap digunakan.
+
+================================================================================
+                    3. INSTALASI DI WEB SERVER (cPanel/VPS)
+================================================================================
+
+─────────────────────────────────────────────────────────────────────────────────
+OPSI A: INSTALASI DI SHARED HOSTING (cPanel)
+─────────────────────────────────────────────────────────────────────────────────
+
+LANGKAH 1: Upload File
+──────────────────────
+1. Login ke cPanel
+2. Buka File Manager
+3. Masuk ke folder public_html (atau subdomain/subfolder yang diinginkan)
+4. Klik "Upload" dan upload file aplikasi (ZIP)
+5. Extract file ZIP tersebut
+6. Pastikan struktur folder benar:
+   public_html/
+   ├── api/
+   ├── assets/
+   ├── auth/
+   ├── config/
+   ├── includes/
+   ├── pages/
+   ├── uploads/
+   ├── index.php
+   └── ...
+
+LANGKAH 2: Buat Database MySQL
+──────────────────────────────
+1. Di cPanel, cari "MySQL Databases"
+2. Buat database baru, misal: username_quickcount
+3. Buat user database baru dengan password kuat
+4. Tambahkan user ke database dengan "All Privileges"
+5. Catat informasi:
+   - Database: username_quickcount
+   - User: username_dbuser
+   - Password: [password yang dibuat]
+
+LANGKAH 3: Import Database
+──────────────────────────
+1. Di cPanel, buka phpMyAdmin
+2. Pilih database yang baru dibuat
+3. Klik tab "Import"
+4. Pilih file quickcount.sql
+5. Klik "Import"
+
+LANGKAH 4: Edit Konfigurasi
+───────────────────────────
+1. Di File Manager, edit file config/database.php:
+
+   <?php
+   define('DB_HOST', 'localhost');
+   define('DB_USER', 'username_dbuser');     // User database
+   define('DB_PASS', 'passwordkuat123');     // Password database
+   define('DB_NAME', 'username_quickcount'); // Nama database
+   ?>
+
+2. Edit file config/config.php:
+
+   define('APP_URL', 'https://namadomain.com/');
+   // atau jika di subfolder:
+   define('APP_URL', 'https://namadomain.com/quickcount/');
+
+LANGKAH 5: Set Permission
+─────────────────────────
+1. Di File Manager, klik kanan folder "uploads"
+2. Pilih "Change Permissions"
+3. Set permission ke 755 atau 775
+4. Centang "Recurse into subdirectories"
+5. Klik "Change Permissions"
+
+LANGKAH 6: Akses Aplikasi
+─────────────────────────
+1. Buka browser
+2. Akses URL domain Anda
+3. Login dengan admin/admin123
+4. SEGERA GANTI PASSWORD ADMIN!
+
+─────────────────────────────────────────────────────────────────────────────────
+OPSI B: INSTALASI DI VPS (Ubuntu/Debian)
+─────────────────────────────────────────────────────────────────────────────────
+
+LANGKAH 1: Install LAMP Stack
+─────────────────────────────
+# Update sistem
+sudo apt update && sudo apt upgrade -y
+
+# Install Apache
+sudo apt install apache2 -y
+
+# Install MySQL
+sudo apt install mysql-server -y
+sudo mysql_secure_installation
+
+# Install PHP dan extensions
+sudo apt install php php-mysql php-gd php-mbstring php-json php-curl -y
+
+# Restart Apache
+sudo systemctl restart apache2
+
+LANGKAH 2: Konfigurasi MySQL
+────────────────────────────
+# Masuk ke MySQL
+sudo mysql -u root -p
+
+# Buat database dan user
+CREATE DATABASE quickcount CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE USER 'qcuser'@'localhost' IDENTIFIED BY 'PasswordKuat123!';
+GRANT ALL PRIVILEGES ON quickcount.* TO 'qcuser'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+LANGKAH 3: Upload dan Extract Aplikasi
+──────────────────────────────────────
+# Masuk ke direktori web
+cd /var/www/html
+
+# Upload file (gunakan SCP, SFTP, atau wget)
+# Contoh dengan SCP dari komputer lokal:
+scp quickcount.zip user@server:/var/www/html/
+
+# Extract
+sudo unzip quickcount.zip
+sudo mv quickcount-folder quickcount
+
+LANGKAH 4: Import Database
+──────────────────────────
+mysql -u qcuser -p quickcount < /var/www/html/quickcount/database/quickcount.sql
+
+LANGKAH 5: Edit Konfigurasi
+───────────────────────────
+sudo nano /var/www/html/quickcount/config/database.php
+
+# Isi dengan:
+<?php
+define('DB_HOST', 'localhost');
+define('DB_USER', 'qcuser');
+define('DB_PASS', 'PasswordKuat123!');
+define('DB_NAME', 'quickcount');
+?>
+
+# Edit APP_URL
+sudo nano /var/www/html/quickcount/config/config.php
+
+define('APP_URL', 'http://IP_SERVER/quickcount/');
+
+LANGKAH 6: Set Permission
+─────────────────────────
+sudo chown -R www-data:www-data /var/www/html/quickcount
+sudo chmod -R 755 /var/www/html/quickcount
+sudo chmod -R 775 /var/www/html/quickcount/uploads
+
+LANGKAH 7: Konfigurasi Apache Virtual Host (Opsional)
+─────────────────────────────────────────────────────
+sudo nano /etc/apache2/sites-available/quickcount.conf
+
+<VirtualHost *:80>
+    ServerName quickcount.domain.com
+    DocumentRoot /var/www/html/quickcount
+    
+    <Directory /var/www/html/quickcount>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog ${APACHE_LOG_DIR}/quickcount_error.log
+    CustomLog ${APACHE_LOG_DIR}/quickcount_access.log combined
+</VirtualHost>
+
+# Enable site dan mod_rewrite
+sudo a2ensite quickcount.conf
+sudo a2enmod rewrite
+sudo systemctl restart apache2
+
+LANGKAH 8: Install SSL (Disarankan)
+───────────────────────────────────
+# Install Certbot
+sudo apt install certbot python3-certbot-apache -y
+
+# Dapatkan SSL certificate
+sudo certbot --apache -d quickcount.domain.com
+
+================================================================================
+                    4. KONFIGURASI DATABASE
+================================================================================
+
+STRUKTUR DATABASE:
+Database: quickcount
+
+TABEL-TABEL:
+┌─────────────┬────────────────────────────────────────────────────────┐
+│ Tabel       │ Keterangan                                             │
+├─────────────┼────────────────────────────────────────────────────────┤
+│ provinsi    │ Data provinsi seluruh Indonesia                        │
+│ kabupaten   │ Data kabupaten/kota per provinsi                       │
+│ kecamatan   │ Data kecamatan per kabupaten                           │
+│ desa        │ Data desa/kelurahan per kecamatan                      │
+│ tps         │ Data TPS per desa                                      │
+│ calon       │ Data calon dan wakil per jenis pemilihan               │
+│ suara       │ Data perolehan suara per TPS                           │
+│ users       │ Data pengguna sistem                                   │
+│ settings    │ Konfigurasi aplikasi                                   │
+└─────────────┴────────────────────────────────────────────────────────┘
+
+IMPORT DATA WILAYAH:
+Jika perlu mengimpor data wilayah Indonesia:
+1. Download data wilayah dari: https://github.com/cahyadsn/wilayah
+2. Import ke tabel provinsi, kabupaten, kecamatan, desa
+
+================================================================================
+                    5. KONFIGURASI APLIKASI
+================================================================================
+
+SETELAH INSTALASI:
+
+1. LOGIN ADMIN
+   - Akses: http://domain/login.php
+   - Username: admin
+   - Password: admin123
+
+2. GANTI PASSWORD ADMIN (WAJIB!)
+   - Klik nama user di pojok kanan atas
+   - Pilih "Profil Saya"
+   - Ubah password dengan yang lebih kuat
+
+3. KONFIGURASI SISTEM
+   - Buka menu "Konfigurasi"
+   - Atur:
+     * Nama Pemilihan (contoh: Quick Count Pilkada Bone 2024)
+     * Jenis Pemilihan (Pilpres/Pilgub/Pilbup/Pilwalkot)
+     * Tahun Pemilihan
+     * Provinsi Aktif (jika ingin filter ke provinsi tertentu)
+     * Kabupaten/Kota Aktif (jika ingin filter ke kabupaten tertentu)
+     * Logo dan Warna Tema
+
+4. TAMBAH USER OPERATOR
+   - Buka menu "Pengguna"
+   - Tambah user dengan role "Operator" untuk input data
+   - Tambah user dengan role "Viewer" untuk yang hanya melihat
+
+5. INPUT MASTER DATA
+   Urutan pengisian:
+   a. Provinsi (jika diperlukan)
+   b. Kabupaten/Kota
+   c. Kecamatan
+   d. Desa/Kelurahan
+   e. TPS
+   f. Calon
+
+6. MULAI INPUT SUARA
+   - Buka menu "Input Suara"
+   - Pilih lokasi TPS
+   - Masukkan perolehan suara setiap calon
+   - Upload foto C1 (opsional)
+   - Klik Simpan
+
+================================================================================
+                    6. TROUBLESHOOTING
+================================================================================
+
+MASALAH: Halaman blank/kosong
+─────────────────────────────
+Penyebab: Error PHP tidak ditampilkan
+Solusi:
+1. Buka config/config.php
+2. Pastikan error reporting aktif:
+   error_reporting(E_ALL);
+   ini_set('display_errors', 1);
+3. Cek file error log Apache
+
+MASALAH: Error koneksi database
+───────────────────────────────
+Penyebab: Konfigurasi database salah
+Solusi:
+1. Periksa file config/database.php
+2. Pastikan:
+   - DB_HOST benar (biasanya 'localhost')
+   - DB_USER dan DB_PASS sesuai
+   - DB_NAME sesuai dengan nama database
+3. Pastikan MySQL service berjalan
+
+MASALAH: Upload gambar gagal
+────────────────────────────
+Penyebab: Permission folder tidak sesuai
+Solusi:
+1. Pastikan folder uploads/ ada
+2. Set permission:
+   - Windows: biasanya otomatis
+   - Linux: chmod 775 uploads/
+3. Cek php.ini:
+   upload_max_filesize = 10M
+   post_max_size = 10M
+
+MASALAH: Session expired terus
+──────────────────────────────
+Penyebab: Konfigurasi session PHP
+Solusi:
+1. Cek folder session PHP bisa ditulis
+2. Pada php.ini, sesuaikan:
+   session.gc_maxlifetime = 3600
+   session.cookie_lifetime = 3600
+
+MASALAH: Grafik tidak muncul
+────────────────────────────
+Penyebab: JavaScript error atau CDN blocked
+Solusi:
+1. Buka Developer Tools browser (F12)
+2. Cek tab Console untuk error
+3. Pastikan koneksi internet aktif (untuk CDN)
+4. Atau download library dan host lokal
+
+MASALAH: "Class not found" error
+────────────────────────────────
+Penyebab: PHP extension tidak terinstall
+Solusi:
+1. Install extension yang diperlukan:
+   - mysqli
+   - gd
+   - mbstring
+2. Restart web server
+
+================================================================================
+                    7. KEAMANAN PRODUKSI
+================================================================================
+
+CHECKLIST KEAMANAN SEBELUM GO-LIVE:
+
+[ ] 1. GANTI PASSWORD DEFAULT
+    - Ganti password admin dari 'admin123'
+    - Gunakan password minimal 12 karakter
+    - Kombinasi huruf besar, kecil, angka, simbol
+
+[ ] 2. MATIKAN ERROR DISPLAY
+    Di config/config.php, ubah:
+    error_reporting(0);
+    ini_set('display_errors', 0);
+
+[ ] 3. LINDUNGI FILE KONFIGURASI
+    Buat file .htaccess di folder config/:
+    
+    <Files "*.php">
+        Order Allow,Deny
+        Deny from all
+    </Files>
+
+[ ] 4. GUNAKAN HTTPS
+    - Install SSL certificate
+    - Force redirect HTTP ke HTTPS
+
+[ ] 5. BACKUP RUTIN
+    - Setup backup database otomatis
+    - Backup folder uploads/
+
+[ ] 6. UPDATE SISTEM
+    - Update PHP ke versi terbaru
+    - Update MySQL/MariaDB
+    - Update Apache/Nginx
+
+[ ] 7. FIREWALL
+    - Hanya buka port yang diperlukan (80, 443)
+    - Batasi akses SSH
+
+[ ] 8. MONITORING
+    - Setup monitoring uptime
+    - Setup alert untuk error
+
+REKOMENDASI TAMBAHAN:
+- Gunakan CDN untuk assets statis
+- Setup rate limiting untuk mencegah brute force
+- Implementasi CAPTCHA pada form login
+- Audit log untuk aktivitas penting
+
+================================================================================
+                         KONTAK & DUKUNGAN
+================================================================================
+
+Jika mengalami kendala instalasi:
+1. Baca dokumentasi ini dengan teliti
+2. Cek bagian Troubleshooting
+3. Periksa file CHANGELOG.txt untuk update terbaru
+
+================================================================================
+                         END OF INSTALLATION GUIDE
+================================================================================

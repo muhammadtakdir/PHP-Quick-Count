@@ -1,0 +1,314 @@
+================================================================================
+                    CHANGELOG - QUICK COUNT SYSTEM
+                    Aplikasi Hitung Cepat Pemilihan
+================================================================================
+
+Versi: 2.0.0
+Tanggal Mulai: November 2025
+Developer: AI Assistant (GitHub Copilot)
+
+================================================================================
+                            DAFTAR PERUBAHAN
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[29 November 2025] - Pengamanan Duplikat Nama Wilayah
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Mencegah input nama wilayah yang duplikat dengan typo atau variasi penulisan.
+
+PERUBAHAN:
+1. File: includes/functions.php
+   - Tambah fungsi normalizeString() - menghapus spasi dan lowercase
+   - Tambah fungsi checkDuplicateKabupaten() - cek duplikat kabupaten
+   - Tambah fungsi checkDuplicateKecamatan() - cek duplikat kecamatan
+   - Tambah fungsi checkDuplicateDesa() - cek duplikat desa
+
+2. File: pages/kabupaten.php
+   - Validasi kode wilayah wajib diisi
+   - Validasi duplikat nama dalam provinsi yang sama
+
+3. File: pages/kecamatan.php
+   - Validasi kode wilayah wajib diisi
+   - Validasi duplikat nama dalam kabupaten yang sama
+
+4. File: pages/desa.php
+   - Validasi kode wilayah wajib diisi
+   - Validasi duplikat nama dalam kecamatan yang sama
+
+CONTOH YANG DITOLAK:
+- "Sinjai Utara" vs "SINJAI UTARA" → Duplikat
+- "Sinjai Utara" vs "SinjaiUtara" → Duplikat
+- "Sinjai Utara" vs "sinjai utara" → Duplikat
+
+────────────────────────────────────────────────────────────────────────────────
+[29 November 2025] - Implementasi Level User (Role-Based Access)
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Membatasi akses berdasarkan role user (Admin, Operator, Viewer).
+
+PERUBAHAN:
+1. File: pages/users.php
+   - Update form role dengan penjelasan akses
+   - Menggunakan requireAdmin() - hanya admin bisa akses
+
+2. File: pages/settings.php
+   - Menggunakan requireAdmin() - hanya admin bisa akses
+
+3. File: input-suara.php
+   - Viewer tidak bisa input suara, redirect ke grafik.php
+
+4. File: includes/header.php
+   - Menu Konfigurasi & Pengguna hanya untuk Admin
+   - Menu Input Suara disembunyikan untuk Viewer
+
+5. File: pages/provinsi.php, kabupaten.php, kecamatan.php, desa.php, tps.php, calon.php
+   - Tambah variabel $isViewer
+   - Tombol Tambah/Edit/Hapus disembunyikan untuk Viewer
+   - Aksi POST diblokir untuk Viewer
+
+MATRIKS AKSES:
+┌──────────────────────┬───────┬──────────┬────────┐
+│ Fitur                │ Admin │ Operator │ Viewer │
+├──────────────────────┼───────┼──────────┼────────┤
+│ Dashboard            │   ✓   │    ✓     │   ✓    │
+│ Grafik & Rekap       │   ✓   │    ✓     │   ✓    │
+│ Input Suara          │   ✓   │    ✓     │   ✗    │
+│ Lihat Master Data    │   ✓   │    ✓     │   ✓    │
+│ Edit Master Data     │   ✓   │    ✓     │   ✗    │
+│ Konfigurasi Sistem   │   ✓   │    ✗     │   ✗    │
+│ Kelola User          │   ✓   │    ✗     │   ✗    │
+└──────────────────────┴───────┴──────────┴────────┘
+
+────────────────────────────────────────────────────────────────────────────────
+[29 November 2025] - Toggle Izinkan Edit Master Provinsi/Kabupaten
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Memberikan opsi untuk tetap bisa mengedit master data provinsi/kabupaten 
+meskipun sudah dikonfigurasi.
+
+PERUBAHAN:
+1. Database: ALTER TABLE settings
+   - Tambah kolom izinkan_edit_provinsi TINYINT(1) DEFAULT 0
+   - Tambah kolom izinkan_edit_kabupaten TINYINT(1) DEFAULT 0
+
+2. File: pages/settings.php
+   - Tambah checkbox "Izinkan Edit Provinsi"
+   - Tambah checkbox "Izinkan Edit Kabupaten/Kota"
+   - Update query SQL untuk menyimpan nilai checkbox
+
+3. File: includes/header.php
+   - Update kondisi tampil menu Provinsi dan Kabupaten
+   - Menu tampil jika: belum dikonfigurasi ATAU izinkan_edit diaktifkan
+
+────────────────────────────────────────────────────────────────────────────────
+[28 November 2025] - Filter Data Berdasarkan Konfigurasi
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Jika provinsi/kabupaten sudah dikonfigurasi, filter data otomatis dan 
+sembunyikan menu yang tidak relevan.
+
+PERUBAHAN:
+1. File: includes/header.php
+   - Sembunyikan menu Provinsi jika id_provinsi_aktif sudah diset
+   - Sembunyikan menu Kabupaten jika id_kabupaten_aktif sudah diset
+
+2. File: pages/kecamatan.php
+   - Force filter berdasarkan settings
+   - Sembunyikan dropdown provinsi/kabupaten jika sudah dikonfigurasi
+
+3. File: pages/desa.php
+   - Force filter berdasarkan settings
+   - Sembunyikan dropdown provinsi/kabupaten jika sudah dikonfigurasi
+
+4. File: pages/tps.php
+   - Force filter berdasarkan settings
+   - Sembunyikan dropdown provinsi/kabupaten jika sudah dikonfigurasi
+
+────────────────────────────────────────────────────────────────────────────────
+[28 November 2025] - Halaman Publik Quick Count
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Membuat halaman publik untuk melihat hasil quick count tanpa login.
+
+PERUBAHAN:
+1. File baru: publik.php
+   - Tampilan hasil quick count untuk publik
+   - Grafik doughnut perolehan suara
+   - Tabel rekap per kecamatan dengan drill-down
+   - Auto-refresh setiap 30 detik
+   - Tidak ada tombol login admin (dihapus sesuai permintaan)
+
+────────────────────────────────────────────────────────────────────────────────
+[28 November 2025] - Drill-Down Rekap Sampai Tingkat TPS
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Menampilkan rekap suara dengan drill-down dari Kecamatan → Desa → TPS.
+
+PERUBAHAN:
+1. File: grafik.php
+   - Tambah tabel rekap per kecamatan
+   - Klik kecamatan untuk lihat rekap per desa
+   - Klik desa untuk lihat rekap per TPS
+   - Menggunakan DataTables dengan pagination
+   - Fix error kolom DataTables tidak sesuai
+
+────────────────────────────────────────────────────────────────────────────────
+[28 November 2025] - Perbaikan Grafik dan Dashboard
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Memperbaiki masalah "grafik turun" dan tampilan chart.
+
+PERUBAHAN:
+1. File: grafik.php
+   - Fix tinggi container chart (min-height: 400px)
+   - Fix DataTables column count error
+   - Perbaikan responsif chart
+
+2. File: index.php (Dashboard)
+   - Fix tampilan chart di dashboard
+   - Perbaikan statistik card
+
+────────────────────────────────────────────────────────────────────────────────
+[28 November 2025] - Freeze Dropdown Berdasarkan Konfigurasi
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Jika provinsi/kabupaten sudah dikonfigurasi, dropdown tersebut di-freeze
+(disabled) di halaman input dan master data.
+
+PERUBAHAN:
+1. File: input-suara.php
+   - Freeze dropdown provinsi/kabupaten jika sudah dikonfigurasi
+   - Auto-select value dari settings
+   - Tampilkan ikon 🔒 untuk field yang di-freeze
+
+2. File: pages/calon.php
+   - Freeze dropdown sesuai jenis pemilihan dan settings
+
+3. File: pages/kecamatan.php, desa.php, tps.php
+   - Freeze dropdown provinsi/kabupaten di form modal
+   - Auto-select dan disabled jika sudah dikonfigurasi
+
+────────────────────────────────────────────────────────────────────────────────
+[27-28 November 2025] - Pembuatan Aplikasi Baru
+────────────────────────────────────────────────────────────────────────────────
+
+TUJUAN:
+Membuat aplikasi Quick Count yang lebih sederhana, modern, dan fleksibel
+dengan cakupan hingga tingkat provinsi dan presiden.
+
+STRUKTUR APLIKASI BARU:
+
+📁 bone/
+├── 📁 api/                    # API endpoints
+│   ├── get-kabupaten.php
+│   ├── get-kecamatan.php
+│   ├── get-desa.php
+│   ├── get-tps.php
+│   └── get-suara-tps.php
+├── 📁 assets/                 # Assets (CSS, JS, Images)
+│   ├── 📁 css/
+│   ├── 📁 js/
+│   └── 📁 img/
+├── 📁 auth/                   # Authentication
+│   ├── login.php
+│   └── logout.php
+├── 📁 config/                 # Configuration
+│   ├── config.php
+│   └── database.php
+├── 📁 includes/               # Shared components
+│   ├── header.php
+│   ├── footer.php
+│   └── functions.php
+├── 📁 pages/                  # Admin pages
+│   ├── provinsi.php
+│   ├── kabupaten.php
+│   ├── kecamatan.php
+│   ├── desa.php
+│   ├── tps.php
+│   ├── calon.php
+│   ├── settings.php
+│   ├── users.php
+│   └── profile.php
+├── 📁 uploads/                # Upload directory
+│   ├── 📁 calon/
+│   ├── 📁 c1/
+│   └── 📁 users/
+├── index.php                  # Dashboard
+├── input-suara.php            # Input suara
+├── grafik.php                 # Grafik & Rekap
+├── publik.php                 # Halaman publik
+└── login.php                  # Login page
+
+DATABASE: quickcount
+TABEL:
+- provinsi (id, kode, nama, is_active)
+- kabupaten (id, id_provinsi, kode, nama, tipe, is_active)
+- kecamatan (id, id_kabupaten, kode, nama, is_active)
+- desa (id, id_kecamatan, kode, nama, tipe, is_active)
+- tps (id, id_desa, nomor_tps, dpt, alamat, is_active)
+- calon (id, jenis_pemilihan, id_provinsi, id_kabupaten, nomor_urut, 
+         nama_calon, nama_wakil, partai, visi, misi, foto_calon, 
+         foto_wakil, warna, is_active)
+- suara (id, id_tps, id_calon, jumlah_suara, suara_tidak_sah, 
+         foto_c1, catatan, input_by, created_at, updated_at)
+- users (id, username, password, nama_lengkap, email, telepon, 
+         role, foto, is_active, last_login, created_at, updated_at)
+- settings (id, nama_pemilihan, jenis_pemilihan, tingkat_wilayah,
+            id_provinsi_aktif, id_kabupaten_aktif, izinkan_edit_provinsi,
+            izinkan_edit_kabupaten, tahun_pemilihan, logo, warna_tema,
+            is_active, created_at, updated_at)
+
+TEKNOLOGI:
+- PHP 8.2.12
+- MySQL/MariaDB
+- Bootstrap 5.3.2
+- jQuery 3.7.1
+- Chart.js 4.4.1
+- DataTables 1.13.7
+- Select2 4.1.0
+- Bootstrap Icons
+
+FITUR UTAMA:
+✓ Multi-level pemilihan (Pilpres, Pilgub, Pilbup, Pilwalkot)
+✓ Hierarki wilayah lengkap (Provinsi → Kabupaten → Kecamatan → Desa → TPS)
+✓ Dashboard dengan statistik real-time
+✓ Input suara dengan upload foto C1
+✓ Grafik perolehan suara (Doughnut & Bar)
+✓ Rekap drill-down sampai tingkat TPS
+✓ Halaman publik untuk melihat hasil
+✓ Role-based access control (Admin, Operator, Viewer)
+✓ Konfigurasi sistem yang fleksibel
+✓ Responsive design untuk mobile
+
+================================================================================
+                              CATATAN TEKNIS
+================================================================================
+
+1. DEFAULT LOGIN:
+   Username: admin
+   Password: admin123
+
+2. UPLOAD DIRECTORY:
+   Pastikan folder uploads/ memiliki permission write (755 atau 777)
+
+3. DATABASE:
+   - Host: localhost
+   - Database: quickcount
+   - User: root (default XAMPP)
+   - Password: (kosong)
+
+4. URL:
+   http://localhost/bone/
+
+================================================================================
+                            END OF CHANGELOG
+================================================================================

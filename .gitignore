@@ -1,0 +1,92 @@
+# Uploads folder (keep structure, ignore content)
+uploads/calon/*
+uploads/c1/*
+uploads/users/*
+!uploads/calon/.gitkeep
+!uploads/c1/.gitkeep
+!uploads/users/.gitkeep
+
+# Keep uploads folder structure
+!uploads/.gitkeep
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+error_log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Old application files (from previous version)
+ambildesa.php
+ambilkecamatan.php
+ambilkota.php
+ambiltps.php
+atas_.php
+atas.php
+atas00.php
+bawah.php
+bawah1.php
+cek.php
+export_data_desa.php
+export_data.php
+export_data.php_
+export_data.php--
+grafik_desa.php
+grafik_det.php
+grafik_kec.php
+grafik_tps.php
+hubung.php
+index1.html
+index2.html
+index3.html
+jquery.js
+konten.php
+logout.php
+masuk.php
+masuk1.php
+petaindex.php
+samping.php
+starter.html
+tu.php
+ubahgambar.php
+upload1.php
+
+# Old folders
+app/
+build/
+cgi-bin/
+chat/
+data/
+docs/
+mob/
+pages/calendar.html
+pages/gallery.html
+pages/widgets.html
+pages/charts/
+pages/examples/
+pages/forms/
+pages/layout/
+pages/mailbox/
+pages/tables/
+pages/UI/
+plugins/
