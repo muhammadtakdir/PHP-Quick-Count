@@ -74,17 +74,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$isViewer) {
 
 // Get provinsi list for dropdown
 $provinsiList = getProvinsi(false);
+$settings = getSettings();
 
-// Get filter
+// Get filter - force by settings if configured
 $filterProvinsi = isset($_GET['provinsi']) ? intval($_GET['provinsi']) : 0;
 
-// Get all data
+// Force filter by settings if provinsi aktif is configured
+if (!empty($settings['id_provinsi_aktif'])) {
+    $filterProvinsi = intval($settings['id_provinsi_aktif']);
+}
+
+// Get all data - filtered by settings
 $sql = "SELECT k.*, p.nama as nama_provinsi,
         (SELECT COUNT(*) FROM kecamatan WHERE id_kabupaten = k.id) as jml_kecamatan
         FROM kabupaten k
-        JOIN provinsi p ON k.id_provinsi = p.id";
-if ($filterProvinsi > 0) {
-    $sql .= " WHERE k.id_provinsi = " . $filterProvinsi;
+        JOIN provinsi p ON k.id_provinsi = p.id
+        WHERE 1=1";
+
+// Always filter by configured provinsi if set
+if (!empty($settings['id_provinsi_aktif'])) {
+    $sql .= " AND k.id_provinsi = " . intval($settings['id_provinsi_aktif']);
+} elseif ($filterProvinsi > 0) {
+    $sql .= " AND k.id_provinsi = " . $filterProvinsi;
 }
 $sql .= " ORDER BY p.nama, k.nama";
 $result = $conn->query($sql);
@@ -96,7 +107,14 @@ include '../includes/header.php';
 <div class="page-header d-flex justify-content-between align-items-center">
     <div>
         <h1>Master Kabupaten/Kota</h1>
-        <p>Kelola data kabupaten dan kota</p>
+        <p>Kelola data kabupaten dan kota
+        <?php if (!empty($settings['id_provinsi_aktif'])): 
+            $provInfo = $conn->query("SELECT nama FROM provinsi WHERE id = " . intval($settings['id_provinsi_aktif']))->fetch_assoc();
+        ?>
+        - <strong class="text-primary"><?= htmlspecialchars($provInfo['nama']) ?></strong>
+        <span class="badge bg-info ms-1"><i class="bi bi-lock"></i> Dikunci</span>
+        <?php endif; ?>
+        </p>
     </div>
     <?php if (!$isViewer): ?>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#formModal">
@@ -105,7 +123,8 @@ include '../includes/header.php';
     <?php endif; ?>
 </div>
 
-<!-- Filter -->
+<!-- Filter - Hidden if settings locked -->
+<?php if (empty($settings['id_provinsi_aktif'])): ?>
 <div class="card mb-3">
     <div class="card-body py-2">
         <form class="row g-2 align-items-center">
@@ -125,6 +144,7 @@ include '../includes/header.php';
         </form>
     </div>
 </div>
+<?php endif; ?>
 
 <div class="card">
     <div class="card-body">

@@ -5,6 +5,9 @@ uploads/users/*
 !uploads/calon/.gitkeep
 !uploads/c1/.gitkeep
 !uploads/users/.gitkeep
+!uploads/calon/index.html
+!uploads/c1/index.html
+!uploads/users/index.html
 
 # Keep uploads folder structure
 !uploads/.gitkeep
@@ -36,57 +39,12 @@ error_log
 *.swp
 *~
 
-# Old application files (from previous version)
-ambildesa.php
-ambilkecamatan.php
-ambilkota.php
-ambiltps.php
-atas_.php
-atas.php
-atas00.php
-bawah.php
-bawah1.php
-cek.php
-export_data_desa.php
-export_data.php
-export_data.php_
-export_data.php--
-grafik_desa.php
-grafik_det.php
-grafik_kec.php
-grafik_tps.php
-hubung.php
-index1.html
-index2.html
-index3.html
-jquery.js
-konten.php
-logout.php
-masuk.php
-masuk1.php
-petaindex.php
-samping.php
-starter.html
-tu.php
-ubahgambar.php
-upload1.php
+# SQL data dumps (keep only structure file)
+*.sql
+!quickcount.sql
 
-# Old folders
-app/
-build/
-cgi-bin/
-chat/
-data/
-docs/
-mob/
-pages/calendar.html
-pages/gallery.html
-pages/widgets.html
-pages/charts/
-pages/examples/
-pages/forms/
-pages/layout/
-pages/mailbox/
-pages/tables/
-pages/UI/
-plugins/
+# Screenshots (optional - comment out if want to include)
+# screenshots/
+
+# Old application files
+bone.sql

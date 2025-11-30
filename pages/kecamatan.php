@@ -6,6 +6,9 @@
 require_once '../config/config.php';
 requireLogin();
 
+// Load settings
+$settings = getSettings();
+
 // Viewer tidak bisa edit master data
 $isViewer = hasRole(['viewer']);
 

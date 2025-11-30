@@ -9,21 +9,49 @@ requireLogin();
 $pageTitle = 'Dashboard';
 $settings = getSettings();
 
-// Get statistics
+// Get configuration filter
+$configFilter = getConfigFilter($settings);
+
+// Get statistics based on config
 $stats = getStatistikTPS([
-    'id_provinsi' => $settings['id_provinsi_aktif'],
-    'id_kabupaten' => $settings['id_kabupaten_aktif']
+    'jenis_pemilihan' => $configFilter['jenis_pemilihan'],
+    'id_provinsi' => $configFilter['id_provinsi'],
+    'id_kabupaten' => $configFilter['id_kabupaten'],
+    'id_desa' => $configFilter['id_desa']
 ]);
 
-// Get rekap suara
-$filter = ['jenis_pemilihan' => $settings['jenis_pemilihan']];
-if ($settings['id_provinsi_aktif']) $filter['id_provinsi'] = $settings['id_provinsi_aktif'];
-if ($settings['id_kabupaten_aktif']) $filter['id_kabupaten'] = $settings['id_kabupaten_aktif'];
+// Get rekap suara with config filter
+$filter = [
+    'jenis_pemilihan' => $configFilter['jenis_pemilihan']
+];
+if ($configFilter['id_provinsi']) $filter['id_provinsi'] = $configFilter['id_provinsi'];
+if ($configFilter['id_kabupaten']) $filter['id_kabupaten'] = $configFilter['id_kabupaten'];
+if ($configFilter['id_desa']) $filter['id_desa'] = $configFilter['id_desa'];
+
 $rekap = getRekapSuara($filter);
+
+// Get active wilayah name for display
+$activeWilayah = getActiveWilayahName($settings);
 
 // Calculate totals
 $totalSuara = array_sum(array_column($rekap, 'total_suara'));
 $tpsProgress = $stats['total_tps'] > 0 ? round(($stats['tps_masuk'] / $stats['total_tps']) * 100, 1) : 0;
+
+// Generate scope description
+$scopeDesc = '';
+switch ($configFilter['scope']) {
+    case 'provinsi':
+        $scopeDesc = isset($activeWilayah['provinsi']) ? 'Provinsi ' . $activeWilayah['provinsi'] : 'Seluruh Provinsi';
+        break;
+    case 'kabupaten':
+        $scopeDesc = isset($activeWilayah['kabupaten']) ? $activeWilayah['kabupaten'] : 'Seluruh Kabupaten/Kota';
+        break;
+    case 'desa':
+        $scopeDesc = isset($activeWilayah['desa']) ? $activeWilayah['desa'] : 'Seluruh Desa/Kelurahan';
+        break;
+    default:
+        $scopeDesc = 'Nasional';
+}
 
 include 'includes/header.php';
 ?>
@@ -31,13 +59,19 @@ include 'includes/header.php';
 <div class="page-header d-flex justify-content-between align-items-center">
     <div>
         <h1>Dashboard</h1>
-        <p>Selamat datang di <?= htmlspecialchars($settings['nama_pemilihan']) ?></p>
+        <p class="mb-1">Selamat datang di <?= htmlspecialchars(getNamaPemilihan($settings)) ?></p>
+        <small class="text-muted">
+            <i class="bi bi-geo-alt me-1"></i><?= htmlspecialchars($scopeDesc) ?>
+        </small>
     </div>
-    <div>
-        <span class="badge bg-primary fs-6">
-            <?= ucfirst(str_replace(['pilpres', 'pilgub', 'pilbup', 'pilwalkot'], 
-                ['Pilpres', 'Pilgub', 'Pilbup', 'Pilwalkot'], $settings['jenis_pemilihan'])) ?>
+    <div class="text-end">
+        <span class="badge bg-primary fs-6 mb-1 d-block">
+            <?= ucfirst(str_replace(['pilpres', 'pilgub', 'pilbup', 'pilwalkot', 'pilkades'], 
+                ['Pilpres', 'Pilgub', 'Pilbup', 'Pilwalkot', 'Pilkades'], $settings['jenis_pemilihan'])) ?>
         </span>
+        <small class="text-muted">
+            Tingkat <?= ucfirst($settings['tingkat_wilayah'] ?? 'kabupaten') ?>
+        </small>
     </div>
 </div>
 

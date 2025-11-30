@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$isViewer) {
     $jenis_pemilihan = sanitize($_POST['jenis_pemilihan']);
     $id_provinsi = !empty($_POST['id_provinsi']) ? intval($_POST['id_provinsi']) : null;
     $id_kabupaten = !empty($_POST['id_kabupaten']) ? intval($_POST['id_kabupaten']) : null;
+    $id_desa = !empty($_POST['id_desa']) ? intval($_POST['id_desa']) : null;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     // Handle foto calon
@@ -80,10 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$isViewer) {
         // Update
         $sql = "UPDATE calon SET nomor_urut = ?, nama_calon = ?, nama_wakil = ?, 
                 partai = ?, visi = ?, misi = ?, warna = ?, jenis_pemilihan = ?,
-                id_provinsi = ?, id_kabupaten = ?, is_active = ?";
+                id_provinsi = ?, id_kabupaten = ?, id_desa = ?, is_active = ?";
         $params = [$nomor_urut, $nama_calon, $nama_wakil, $partai, $visi, $misi, 
-                   $warna, $jenis_pemilihan, $id_provinsi, $id_kabupaten, $is_active];
-        $types = "isssssssiii";
+                   $warna, $jenis_pemilihan, $id_provinsi, $id_kabupaten, $id_desa, $is_active];
+        $types = "isssssssiiii";
         
         if ($foto_calon) {
             $sql .= ", foto_calon = ?";
@@ -109,10 +110,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$isViewer) {
         $foto_wakil = $foto_wakil ?? 'default_wakil.png';
         
         $stmt = $conn->prepare("INSERT INTO calon (nomor_urut, nama_calon, nama_wakil, partai, visi, misi, 
-                               warna, jenis_pemilihan, id_provinsi, id_kabupaten, foto_calon, foto_wakil, is_active) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("isssssssiissi", $nomor_urut, $nama_calon, $nama_wakil, $partai, $visi, $misi,
-                         $warna, $jenis_pemilihan, $id_provinsi, $id_kabupaten, $foto_calon, $foto_wakil, $is_active);
+                               warna, jenis_pemilihan, id_provinsi, id_kabupaten, id_desa, foto_calon, foto_wakil, is_active) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("isssssssiiissi", $nomor_urut, $nama_calon, $nama_wakil, $partai, $visi, $misi,
+                         $warna, $jenis_pemilihan, $id_provinsi, $id_kabupaten, $id_desa, $foto_calon, $foto_wakil, $is_active);
         $message = 'Data calon berhasil ditambahkan!';
     }
     
@@ -125,27 +126,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$isViewer) {
     exit;
 }
 
-// Get filters
-$filterJenis = isset($_GET['jenis']) ? sanitize($_GET['jenis']) : '';
-$filterProvinsi = isset($_GET['provinsi']) ? intval($_GET['provinsi']) : 0;
-
-// Get dropdowns
+// Get dropdowns untuk form tambah/edit
 $provinsiList = getProvinsi(false);
 
-// Get calon data
-$sql = "SELECT c.*, p.nama as nama_provinsi, k.nama as nama_kabupaten,
+// Get calon data - filter berdasarkan settings (jenis pemilihan & wilayah aktif)
+$jenisPemilihanAktif = $settings['jenis_pemilihan'] ?? '';
+
+$sql = "SELECT c.*, p.nama as nama_provinsi, k.nama as nama_kabupaten, d.nama as nama_desa,
         (SELECT COALESCE(SUM(jumlah_suara), 0) FROM suara WHERE id_calon = c.id) as total_suara
         FROM calon c
         LEFT JOIN provinsi p ON c.id_provinsi = p.id
         LEFT JOIN kabupaten k ON c.id_kabupaten = k.id
+        LEFT JOIN desa d ON c.id_desa = d.id
         WHERE 1=1";
-if ($filterJenis) {
-    $sql .= " AND c.jenis_pemilihan = '" . $conn->real_escape_string($filterJenis) . "'";
+
+// Filter berdasarkan jenis pemilihan dari settings
+if ($jenisPemilihanAktif) {
+    $sql .= " AND c.jenis_pemilihan = '" . $conn->real_escape_string($jenisPemilihanAktif) . "'";
 }
-if ($filterProvinsi > 0) {
-    $sql .= " AND c.id_provinsi = " . $filterProvinsi;
+
+// Filter berdasarkan wilayah aktif dari settings sesuai jenjang
+if ($jenisPemilihanAktif === 'pilkades' && !empty($settings['id_desa_aktif'])) {
+    // Pilkades: filter by desa
+    $sql .= " AND c.id_desa = " . intval($settings['id_desa_aktif']);
+} elseif (in_array($jenisPemilihanAktif, ['pilbup', 'pilwalkot']) && !empty($settings['id_kabupaten_aktif'])) {
+    // Pilbup/Pilwalkot: filter by kabupaten
+    $sql .= " AND c.id_kabupaten = " . intval($settings['id_kabupaten_aktif']);
+} elseif ($jenisPemilihanAktif === 'pilgub' && !empty($settings['id_provinsi_aktif'])) {
+    // Pilgub: filter by provinsi
+    $sql .= " AND c.id_provinsi = " . intval($settings['id_provinsi_aktif']);
+} elseif (!empty($settings['id_kabupaten_aktif'])) {
+    // Default: filter by kabupaten if set
+    $sql .= " AND c.id_kabupaten = " . intval($settings['id_kabupaten_aktif']);
+} elseif (!empty($settings['id_provinsi_aktif'])) {
+    // Fallback: filter by provinsi if set
+    $sql .= " AND c.id_provinsi = " . intval($settings['id_provinsi_aktif']);
 }
-$sql .= " ORDER BY c.jenis_pemilihan, c.nomor_urut";
+
+$sql .= " ORDER BY c.nomor_urut";
 $result = $conn->query($sql);
 $calonList = $result->fetch_all(MYSQLI_ASSOC);
 
@@ -155,46 +173,45 @@ include '../includes/header.php';
 <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
         <h1>Master Calon</h1>
-        <p>Kelola data calon dan wakil</p>
+        <p>Kelola data calon dan wakil 
+        <?php 
+        $jenisPemilihanLabel = [
+            'pilpres' => 'Pilpres',
+            'pilgub' => 'Pilgub',
+            'pilbup' => 'Pilbup',
+            'pilwalkot' => 'Pilwalkot',
+            'pilkades' => 'Pilkades'
+        ];
+        $jenisAktif = $settings['jenis_pemilihan'] ?? '';
+        
+        if ($jenisAktif === 'pilkades' && !empty($settings['id_desa_aktif'])): 
+            $desaAktif = $conn->query("SELECT d.nama as nama_desa, kc.nama as nama_kec FROM desa d JOIN kecamatan kc ON d.id_kecamatan = kc.id WHERE d.id = " . intval($settings['id_desa_aktif']))->fetch_assoc();
+        ?>
+        - <span class="badge bg-success">Pilkades</span> <strong class="text-primary"><?= htmlspecialchars($desaAktif['nama_desa'] ?? '') ?></strong> <small class="text-muted">Kec. <?= htmlspecialchars($desaAktif['nama_kec'] ?? '') ?></small>
+        <?php elseif ($jenisAktif === 'pilgub' && !empty($settings['id_provinsi_aktif'])): 
+            $provAktif = $conn->query("SELECT nama FROM provinsi WHERE id = " . intval($settings['id_provinsi_aktif']))->fetch_assoc();
+        ?>
+        - <span class="badge bg-info">Pilgub</span> <strong class="text-primary"><?= htmlspecialchars($provAktif['nama'] ?? '') ?></strong>
+        <?php elseif (in_array($jenisAktif, ['pilbup', 'pilwalkot']) && !empty($settings['id_kabupaten_aktif'])): 
+            $kabAktif = $conn->query("SELECT nama FROM kabupaten WHERE id = " . intval($settings['id_kabupaten_aktif']))->fetch_assoc();
+        ?>
+        - <span class="badge bg-primary"><?= $jenisPemilihanLabel[$jenisAktif] ?? 'Pilbup' ?></span> <strong class="text-primary"><?= htmlspecialchars($kabAktif['nama'] ?? '') ?></strong>
+        <?php elseif (!empty($settings['id_kabupaten_aktif'])): 
+            $kabAktif = $conn->query("SELECT nama FROM kabupaten WHERE id = " . intval($settings['id_kabupaten_aktif']))->fetch_assoc();
+        ?>
+        - <strong class="text-primary"><?= htmlspecialchars($kabAktif['nama'] ?? '') ?></strong>
+        <?php elseif (!empty($settings['id_provinsi_aktif'])): 
+            $provAktif = $conn->query("SELECT nama FROM provinsi WHERE id = " . intval($settings['id_provinsi_aktif']))->fetch_assoc();
+        ?>
+        - <strong class="text-primary"><?= htmlspecialchars($provAktif['nama'] ?? '') ?></strong>
+        <?php endif; ?>
+        </p>
     </div>
     <?php if (!$isViewer): ?>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#formModal">
         <i class="bi bi-plus-lg me-2"></i>Tambah Calon
     </button>
     <?php endif; ?>
-</div>
-
-<!-- Filter -->
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <form class="row g-2 align-items-center">
-            <div class="col-auto">
-                <label class="col-form-label">Filter:</label>
-            </div>
-            <div class="col-md-3">
-                <select name="jenis" class="form-select">
-                    <option value="">-- Semua Jenis Pemilihan --</option>
-                    <option value="pilpres" <?= $filterJenis == 'pilpres' ? 'selected' : '' ?>>Pilpres</option>
-                    <option value="pilgub" <?= $filterJenis == 'pilgub' ? 'selected' : '' ?>>Pilgub</option>
-                    <option value="pilbup" <?= $filterJenis == 'pilbup' ? 'selected' : '' ?>>Pilbup</option>
-                    <option value="pilwalkot" <?= $filterJenis == 'pilwalkot' ? 'selected' : '' ?>>Pilwalkot</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <select name="provinsi" class="form-select">
-                    <option value="">-- Semua Provinsi --</option>
-                    <?php foreach ($provinsiList as $prov): ?>
-                    <option value="<?= $prov['id'] ?>" <?= $filterProvinsi == $prov['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($prov['nama']) ?>
-                    </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-secondary">Filter</button>
-            </div>
-        </form>
-    </div>
 </div>
 
 <div class="card">
@@ -236,6 +253,22 @@ include '../includes/header.php';
                         <?php if ($calon['partai']): ?>
                         <p class="small text-muted mb-2">
                             <i class="bi bi-flag me-1"></i><?= htmlspecialchars($calon['partai']) ?>
+                        </p>
+                        <?php endif; ?>
+                        
+                        <?php 
+                        // Tampilkan wilayah berdasarkan jenis pemilihan
+                        $wilayahText = '';
+                        if ($calon['jenis_pemilihan'] === 'pilgub' && $calon['nama_provinsi']) {
+                            $wilayahText = $calon['nama_provinsi'];
+                        } elseif (in_array($calon['jenis_pemilihan'], ['pilbup', 'pilwalkot']) && $calon['nama_kabupaten']) {
+                            $wilayahText = $calon['nama_kabupaten'];
+                        } elseif ($calon['jenis_pemilihan'] === 'pilkades' && $calon['nama_desa']) {
+                            $wilayahText = 'Desa ' . $calon['nama_desa'];
+                        }
+                        if ($wilayahText): ?>
+                        <p class="small text-info mb-2">
+                            <i class="bi bi-geo-alt me-1"></i><?= htmlspecialchars($wilayahText) ?>
                         </p>
                         <?php endif; ?>
                         
@@ -302,6 +335,7 @@ include '../includes/header.php';
                                 <option value="pilgub" <?= ($settings['jenis_pemilihan'] ?? '') == 'pilgub' ? 'selected' : '' ?>>Pilgub</option>
                                 <option value="pilbup" <?= ($settings['jenis_pemilihan'] ?? '') == 'pilbup' ? 'selected' : '' ?>>Pilbup</option>
                                 <option value="pilwalkot" <?= ($settings['jenis_pemilihan'] ?? '') == 'pilwalkot' ? 'selected' : '' ?>>Pilwalkot</option>
+                                <option value="pilkades" <?= ($settings['jenis_pemilihan'] ?? '') == 'pilkades' ? 'selected' : '' ?>>Pilkades</option>
                             </select>
                             <?php if (!empty($settings['jenis_pemilihan'])): ?>
                             <input type="hidden" name="jenis_pemilihan" value="<?= $settings['jenis_pemilihan'] ?>">
@@ -318,8 +352,9 @@ include '../includes/header.php';
                         </div>
                     </div>
                     
-                    <div class="row" id="wilayahRow">
-                        <div class="col-md-6 mb-3">
+                    <!-- Wilayah Provinsi (untuk Pilgub) -->
+                    <div class="row" id="wilayahProvinsiRow">
+                        <div class="col-md-12 mb-3">
                             <label class="form-label">Provinsi</label>
                             <select name="id_provinsi" id="formProvinsi" class="form-select" onchange="loadFormKabupaten()" <?= !empty($settings['id_provinsi_aktif']) ? 'disabled' : '' ?>>
                                 <option value="">-- Pilih Provinsi --</option>
@@ -334,13 +369,37 @@ include '../includes/header.php';
                             <small class="text-muted"><i class="bi bi-lock"></i> Sesuai konfigurasi</small>
                             <?php endif; ?>
                         </div>
-                        <div class="col-md-6 mb-3" id="kabupatenCol">
+                    </div>
+                    
+                    <!-- Wilayah Kabupaten (untuk Pilbup/Pilwalkot) -->
+                    <div class="row" id="wilayahKabupatenRow">
+                        <div class="col-md-12 mb-3">
                             <label class="form-label">Kabupaten/Kota</label>
-                            <select name="id_kabupaten" id="formKabupaten" class="form-select" <?= !empty($settings['id_kabupaten_aktif']) ? 'disabled' : '' ?>>
+                            <select name="id_kabupaten" id="formKabupaten" class="form-select" onchange="loadFormKecamatan()" <?= !empty($settings['id_kabupaten_aktif']) ? 'disabled' : '' ?>>
                                 <option value="">-- Pilih Kabupaten --</option>
                             </select>
                             <?php if (!empty($settings['id_kabupaten_aktif'])): ?>
                             <input type="hidden" name="id_kabupaten" value="<?= $settings['id_kabupaten_aktif'] ?>">
+                            <small class="text-muted"><i class="bi bi-lock"></i> Sesuai konfigurasi</small>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <!-- Wilayah Desa (untuk Pilkades) -->
+                    <div class="row" id="wilayahDesaRow" style="display: none;">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Kecamatan</label>
+                            <select id="formKecamatan" class="form-select" onchange="loadFormDesa()">
+                                <option value="">-- Pilih Kecamatan --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Desa/Kelurahan <span class="text-danger">*</span></label>
+                            <select name="id_desa" id="formDesa" class="form-select" <?= !empty($settings['id_desa_aktif']) ? 'disabled' : '' ?>>
+                                <option value="">-- Pilih Desa --</option>
+                            </select>
+                            <?php if (!empty($settings['id_desa_aktif'])): ?>
+                            <input type="hidden" name="id_desa" value="<?= $settings['id_desa_aktif'] ?>">
                             <small class="text-muted"><i class="bi bi-lock"></i> Sesuai konfigurasi</small>
                             <?php endif; ?>
                         </div>
@@ -403,32 +462,50 @@ include '../includes/header.php';
 <?php
 $defaultProvId = $settings['id_provinsi_aktif'] ?? '';
 $defaultKabId = $settings['id_kabupaten_aktif'] ?? '';
+$defaultDesaId = $settings['id_desa_aktif'] ?? '';
 $defaultJenis = $settings['jenis_pemilihan'] ?? '';
 $provLocked = !empty($defaultProvId) ? 'true' : 'false';
 $kabLocked = !empty($defaultKabId) ? 'true' : 'false';
+$desaLocked = !empty($defaultDesaId) ? 'true' : 'false';
 $jenisLocked = !empty($defaultJenis) ? 'true' : 'false';
 
 $additionalJS = <<<JS
 <script>
 var defaultProv = '{$defaultProvId}';
 var defaultKab = '{$defaultKabId}';
+var defaultDesa = '{$defaultDesaId}';
 var defaultJenis = '{$defaultJenis}';
 var provLocked = {$provLocked};
 var kabLocked = {$kabLocked};
+var desaLocked = {$desaLocked};
 var jenisLocked = {$jenisLocked};
 
 function toggleWilayah() {
     var jenis = $('#formJenis').val();
-    // Untuk pilpres, sembunyikan wilayah karena tidak perlu
-    // Tapi jika sudah dikunci, tetap tampilkan
-    if (jenis === 'pilpres' && !provLocked) {
-        $('#wilayahRow').hide();
-    } else if (jenis === 'pilgub') {
-        $('#wilayahRow').show();
-        $('#kabupatenCol').hide();
-    } else {
-        $('#wilayahRow').show();
-        $('#kabupatenCol').show();
+    
+    // Hide all wilayah rows first
+    $('#wilayahProvinsiRow, #wilayahKabupatenRow, #wilayahDesaRow').hide();
+    
+    switch(jenis) {
+        case 'pilpres':
+            // Pilpres: tidak perlu wilayah
+            break;
+        case 'pilgub':
+            // Pilgub: hanya provinsi
+            $('#wilayahProvinsiRow').show();
+            break;
+        case 'pilbup':
+        case 'pilwalkot':
+            // Pilbup/Pilwalkot: provinsi + kabupaten
+            $('#wilayahProvinsiRow').show();
+            $('#wilayahKabupatenRow').show();
+            break;
+        case 'pilkades':
+            // Pilkades: provinsi + kabupaten + kecamatan + desa
+            $('#wilayahProvinsiRow').show();
+            $('#wilayahKabupatenRow').show();
+            $('#wilayahDesaRow').show();
+            break;
     }
 }
 
@@ -445,6 +522,43 @@ function loadFormKabupaten(selectedId) {
             data.forEach(function(item) {
                 var sel = (item.id == selectedId || item.id == defaultKab) ? 'selected' : '';
                 $('#formKabupaten').append('<option value="' + item.id + '" ' + sel + '>' + item.nama + '</option>');
+            });
+            
+            // Trigger load kecamatan if kabupaten is selected
+            if (defaultKab || selectedId) {
+                loadFormKecamatan();
+            }
+        });
+    }
+}
+
+function loadFormKecamatan(selectedKecId) {
+    var kabId = $('#formKabupaten').val() || defaultKab;
+    
+    if (kabId) {
+        $.get('../api/get-kecamatan.php', { id_kabupaten: kabId }, function(data) {
+            $('#formKecamatan').html('<option value="">-- Pilih Kecamatan --</option>');
+            data.forEach(function(item) {
+                var sel = (item.id == selectedKecId) ? 'selected' : '';
+                $('#formKecamatan').append('<option value="' + item.id + '" ' + sel + '>' + item.nama + '</option>');
+            });
+        });
+    }
+}
+
+function loadFormDesa(selectedId) {
+    var kecId = $('#formKecamatan').val();
+    
+    if (kecId) {
+        $.get('../api/get-desa.php', { id_kecamatan: kecId }, function(data) {
+            if (!desaLocked) {
+                $('#formDesa').html('<option value="">-- Pilih Desa --</option>');
+            } else {
+                $('#formDesa').html('');
+            }
+            data.forEach(function(item) {
+                var sel = (item.id == selectedId || item.id == defaultDesa) ? 'selected' : '';
+                $('#formDesa').append('<option value="' + item.id + '" ' + sel + '>' + item.nama + '</option>');
             });
         });
     }
@@ -470,8 +584,26 @@ function editData(data) {
     if (data.id_provinsi && !provLocked) {
         $('#formProvinsi').val(data.id_provinsi);
     }
-    if (data.id_kabupaten) {
+    
+    // Load kabupaten then kecamatan then desa for pilkades
+    if (data.id_kabupaten || defaultKab) {
         loadFormKabupaten(data.id_kabupaten);
+        
+        // If pilkades, need to load kecamatan and desa
+        if (data.jenis_pemilihan === 'pilkades' && data.id_desa) {
+            // Get kecamatan of the desa first
+            $.get('../api/get-desa-info.php', { id_desa: data.id_desa }, function(desaInfo) {
+                if (desaInfo && desaInfo.id_kecamatan) {
+                    setTimeout(function() {
+                        loadFormKecamatan(desaInfo.id_kecamatan);
+                        setTimeout(function() {
+                            $('#formKecamatan').val(desaInfo.id_kecamatan);
+                            loadFormDesa(data.id_desa);
+                        }, 300);
+                    }, 300);
+                }
+            });
+        }
     }
     
     // Show current photos
@@ -498,6 +630,8 @@ $('#formModal').on('hidden.bs.modal', function() {
     }
     
     $('#previewCalon, #previewWakil').html('');
+    $('#formKecamatan').html('<option value="">-- Pilih Kecamatan --</option>');
+    $('#formDesa').html('<option value="">-- Pilih Desa --</option>');
     toggleWilayah();
     
     // Reload kabupaten if provinsi is locked

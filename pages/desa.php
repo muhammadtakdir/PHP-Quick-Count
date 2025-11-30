@@ -11,6 +11,7 @@ $isViewer = hasRole(['viewer']);
 
 $pageTitle = 'Master Desa/Kelurahan';
 $conn = getConnection();
+$settings = getSettings();
 
 // Handle actions
 $action = $_GET['action'] ?? 'list';
@@ -87,8 +88,20 @@ if (!empty($settings['id_kabupaten_aktif'])) {
 
 // Get dropdowns
 $provinsiList = getProvinsi(false);
-$kabupatenFilter = $filterProvinsi > 0 ? getKabupaten($filterProvinsi, false) : [];
-$kecamatanFilter = $filterKabupaten > 0 ? getKecamatan($filterKabupaten, false) : [];
+
+// Jika provinsi sudah dikunci di settings, ambil kabupaten dari provinsi tersebut
+if (!empty($settings['id_provinsi_aktif'])) {
+    $kabupatenFilter = getKabupaten($settings['id_provinsi_aktif'], false);
+} else {
+    $kabupatenFilter = $filterProvinsi > 0 ? getKabupaten($filterProvinsi, false) : [];
+}
+
+// Jika kabupaten sudah dikunci di settings, ambil kecamatan dari kabupaten tersebut
+if (!empty($settings['id_kabupaten_aktif'])) {
+    $kecamatanFilter = getKecamatan($settings['id_kabupaten_aktif'], false);
+} else {
+    $kecamatanFilter = $filterKabupaten > 0 ? getKecamatan($filterKabupaten, false) : [];
+}
 
 // Get all data with limit for performance
 $sql = "SELECT d.*, kec.nama as nama_kecamatan, k.nama as nama_kabupaten, p.nama as nama_provinsi,
@@ -122,7 +135,7 @@ if (!empty($settings['id_kabupaten_aktif'])) {
         $sql .= " AND k.id_provinsi = " . $filterProvinsi;
     }
 }
-$sql .= " ORDER BY p.nama, k.nama, kec.nama, d.nama LIMIT 500";
+$sql .= " ORDER BY p.nama, k.nama, kec.nama, d.nama";
 $result = $conn->query($sql);
 $desaList = $result->fetch_all(MYSQLI_ASSOC);
 
@@ -156,7 +169,7 @@ include '../includes/header.php';
             </div>
             <?php if (empty($settings['id_provinsi_aktif'])): ?>
             <div class="col-md-3">
-                <select name="provinsi" id="filterProvinsi" class="form-select" onchange="loadFilterKabupaten()">
+                <select name="provinsi" id="filterProvinsi" class="form-select">
                     <option value="">-- Provinsi --</option>
                     <?php foreach ($provinsiList as $prov): ?>
                     <option value="<?= $prov['id'] ?>" <?= $filterProvinsi == $prov['id'] ? 'selected' : '' ?>>
@@ -168,7 +181,7 @@ include '../includes/header.php';
             <?php endif; ?>
             <?php if (empty($settings['id_kabupaten_aktif'])): ?>
             <div class="col-md-3">
-                <select name="kabupaten" id="filterKabupaten" class="form-select" onchange="loadFilterKecamatan()">
+                <select name="kabupaten" id="filterKabupaten" class="form-select">
                     <option value="">-- Kabupaten/Kota --</option>
                     <?php foreach ($kabupatenFilter as $kab): ?>
                     <option value="<?= $kab['id'] ?>" <?= $filterKabupaten == $kab['id'] ? 'selected' : '' ?>>
@@ -197,10 +210,6 @@ include '../includes/header.php';
 
 <div class="card">
     <div class="card-body">
-        <div class="alert alert-info mb-3">
-            <i class="bi bi-info-circle me-2"></i>
-            Menampilkan maksimal 500 data. Gunakan filter untuk mempersempit hasil.
-        </div>
         <table class="table table-hover" id="dataTable">
             <thead>
                 <tr>
@@ -349,25 +358,31 @@ var kabLocked = {$kabLocked};
 
 $('#dataTable').DataTable({ pageLength: 25 });
 
-function loadFilterKabupaten() {
+function loadFilterKabupaten(selectedId) {
     const provId = $('#filterProvinsi').val();
     $('#filterKabupaten').html('<option value="">-- Kabupaten/Kota --</option>');
-    $('#filterKecamatan').html('<option value="">-- Kecamatan --</option>');
+    $('#filterKecamatan').html('<option value="">-- Semua Kecamatan --</option>');
     
     if (provId) {
         $.get('../api/get-kabupaten.php', { id_provinsi: provId }, function(data) {
-            data.forEach(item => $('#filterKabupaten').append('<option value="' + item.id + '">' + item.nama + '</option>'));
+            data.forEach(item => {
+                const sel = item.id == selectedId ? 'selected' : '';
+                $('#filterKabupaten').append('<option value="' + item.id + '" ' + sel + '>' + item.nama + '</option>');
+            });
         });
     }
 }
 
-function loadFilterKecamatan() {
+function loadFilterKecamatan(selectedId) {
     const kabId = $('#filterKabupaten').val();
-    $('#filterKecamatan').html('<option value="">-- Kecamatan --</option>');
+    $('#filterKecamatan').html('<option value="">-- Semua Kecamatan --</option>');
     
     if (kabId) {
         $.get('../api/get-kecamatan.php', { id_kabupaten: kabId }, function(data) {
-            data.forEach(item => $('#filterKecamatan').append('<option value="' + item.id + '">' + item.nama + '</option>'));
+            data.forEach(item => {
+                const sel = item.id == selectedId ? 'selected' : '';
+                $('#filterKecamatan').append('<option value="' + item.id + '" ' + sel + '>' + item.nama + '</option>');
+            });
         });
     }
 }
@@ -450,6 +465,15 @@ $(document).ready(function() {
     if (defaultProv) {
         loadFormKabupaten(defaultKab);
     }
+    
+    // Handle filter change events
+    $('#filterProvinsi').on('change', function() {
+        loadFilterKabupaten();
+    });
+    
+    $('#filterKabupaten').on('change', function() {
+        loadFilterKecamatan();
+    });
 });
 </script>
 JS;

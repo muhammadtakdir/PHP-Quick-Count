@@ -11,6 +11,7 @@ $isViewer = hasRole(['viewer']);
 
 $pageTitle = 'Master TPS';
 $conn = getConnection();
+$settings = getSettings();
 
 // Handle actions
 $action = $_GET['action'] ?? 'list';
@@ -91,8 +92,22 @@ if (!empty($settings['id_kabupaten_aktif'])) {
 
 // Get dropdowns
 $provinsiList = getProvinsi(false);
-$kabupatenFilter = $filterProvinsi > 0 ? getKabupaten($filterProvinsi, false) : [];
-$kecamatanFilter = $filterKabupaten > 0 ? getKecamatan($filterKabupaten, false) : [];
+
+// Jika provinsi sudah dikunci di settings, ambil kabupaten dari provinsi tersebut
+if (!empty($settings['id_provinsi_aktif'])) {
+    $kabupatenFilter = getKabupaten($settings['id_provinsi_aktif'], false);
+} else {
+    $kabupatenFilter = $filterProvinsi > 0 ? getKabupaten($filterProvinsi, false) : [];
+}
+
+// Jika kabupaten sudah dikunci di settings, ambil kecamatan dari kabupaten tersebut
+if (!empty($settings['id_kabupaten_aktif'])) {
+    $kecamatanFilter = getKecamatan($settings['id_kabupaten_aktif'], false);
+} else {
+    $kecamatanFilter = $filterKabupaten > 0 ? getKecamatan($filterKabupaten, false) : [];
+}
+
+// Ambil desa berdasarkan kecamatan yang dipilih
 $desaFilter = $filterKecamatan > 0 ? getDesa($filterKecamatan, false) : [];
 
 // Get TPS data
@@ -136,7 +151,7 @@ if (!empty($settings['id_kabupaten_aktif'])) {
         $sql .= " AND k.id_provinsi = " . $filterProvinsi;
     }
 }
-$sql .= " ORDER BY k.nama, kec.nama, d.nama, t.nomor_tps LIMIT 500";
+$sql .= " ORDER BY k.nama, kec.nama, d.nama, t.nomor_tps";
 $result = $conn->query($sql);
 $tpsList = $result->fetch_all(MYSQLI_ASSOC);
 
@@ -461,16 +476,17 @@ $('#dataTable').DataTable({ pageLength: 25 });
 // Filter cascading
 $('#filterProvinsi').change(function() {
     loadCascade('../api/get-kabupaten.php', { id_provinsi: $(this).val() }, '#filterKabupaten', '-- Kabupaten/Kota --');
-    $('#filterKecamatan, #filterDesa').html('<option value="">-- Pilih --</option>');
+    $('#filterKecamatan').html('<option value="">-- Semua Kecamatan --</option>');
+    $('#filterDesa').html('<option value="">-- Semua Desa/Kel --</option>');
 });
 
 $('#filterKabupaten').change(function() {
-    loadCascade('../api/get-kecamatan.php', { id_kabupaten: $(this).val() }, '#filterKecamatan', '-- Kecamatan --');
-    $('#filterDesa').html('<option value="">-- Desa/Kel --</option>');
+    loadCascade('../api/get-kecamatan.php', { id_kabupaten: $(this).val() }, '#filterKecamatan', '-- Semua Kecamatan --');
+    $('#filterDesa').html('<option value="">-- Semua Desa/Kel --</option>');
 });
 
 $('#filterKecamatan').change(function() {
-    loadCascade('../api/get-desa.php', { id_kecamatan: $(this).val() }, '#filterDesa', '-- Desa/Kel --');
+    loadCascade('../api/get-desa.php', { id_kecamatan: $(this).val() }, '#filterDesa', '-- Semua Desa/Kel --');
 });
 
 // Form cascading

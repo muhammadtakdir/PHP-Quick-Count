@@ -13,7 +13,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $pageTitle ?? 'Dashboard' ?> - <?= $settings['nama_pemilihan'] ?? 'Quick Count' ?></title>
+    <title><?= $pageTitle ?? 'Dashboard' ?> - <?= getNamaPemilihan($settings) ?></title>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -392,7 +392,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
             <div class="logo">
                 <i class="bi bi-bar-chart-fill"></i>
             </div>
-            <h5><?= $settings['nama_pemilihan'] ?? 'Quick Count' ?></h5>
+            <h5><?= getNamaPemilihan($settings) ?></h5>
             <small>Tahun <?= $settings['tahun_pemilihan'] ?? date('Y') ?></small>
         </div>
         
@@ -449,6 +449,16 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                 <i class="bi bi-gear"></i>
                 <span>Konfigurasi</span>
             </a>
+            <a href="<?= APP_URL ?>pages/settings-daerah.php" class="<?= $currentPage == 'settings-daerah' ? 'active' : '' ?>">
+                <i class="bi bi-sliders"></i>
+                <span>Pengaturan Daerah</span>
+            </a>
+            <?php if (($settings['jenis_hitung'] ?? 'real_count') === 'quick_count'): ?>
+            <a href="<?= APP_URL ?>pages/tps-sample.php" class="<?= $currentPage == 'tps-sample' ? 'active' : '' ?>">
+                <i class="bi bi-pin-map"></i>
+                <span>TPS Sampel</span>
+            </a>
+            <?php endif; ?>
             <a href="<?= APP_URL ?>pages/users.php" class="<?= $currentPage == 'users' ? 'active' : '' ?>">
                 <i class="bi bi-person-gear"></i>
                 <span>Pengguna</span>

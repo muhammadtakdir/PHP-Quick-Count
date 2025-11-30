@@ -37,7 +37,11 @@ require_once BASEPATH . 'config/database.php';
 // Include helper functions
 require_once BASEPATH . 'includes/functions.php';
 
-// Error reporting (disable in production)
+// Error reporting
+// PENTING: Set ke 0 untuk production!
+// error_reporting(0);
+// ini_set('display_errors', 0);
+// Untuk development:
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -57,6 +61,48 @@ function getSettings() {
     }
     
     return $settings;
+}
+
+/**
+ * Get settings per kabupaten
+ * @param int $idKabupaten ID Kabupaten
+ * @return array|null Settings untuk kabupaten tersebut
+ */
+function getSettingsKabupaten($idKabupaten) {
+    $conn = getConnection();
+    $stmt = $conn->prepare("
+        SELECT sk.*, k.nama as nama_kabupaten, p.nama as nama_provinsi
+        FROM settings_kabupaten sk
+        JOIN kabupaten k ON sk.id_kabupaten = k.id
+        JOIN provinsi p ON k.id_provinsi = p.id
+        WHERE sk.id_kabupaten = ? AND sk.is_active = 1
+    ");
+    $stmt->bind_param("i", $idKabupaten);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_assoc();
+}
+
+/**
+ * Get all kabupaten settings
+ * @return array List of all kabupaten with their settings
+ */
+function getAllKabupatenSettings() {
+    $conn = getConnection();
+    $query = "
+        SELECT k.id, k.nama as nama_kabupaten, p.nama as nama_provinsi,
+               sk.nama_pemilihan, sk.jenis_pemilihan, sk.jenis_hitung, 
+               sk.jumlah_tps_sample, sk.public_detail_level, sk.tahun_pemilihan, sk.is_active as setting_active,
+               (SELECT COUNT(*) FROM kecamatan WHERE id_kabupaten = k.id) as jumlah_kecamatan,
+               (SELECT COUNT(*) FROM desa d JOIN kecamatan kc ON d.id_kecamatan = kc.id WHERE kc.id_kabupaten = k.id) as jumlah_desa,
+               (SELECT COUNT(*) FROM tps t JOIN desa d ON t.id_desa = d.id JOIN kecamatan kc ON d.id_kecamatan = kc.id WHERE kc.id_kabupaten = k.id) as jumlah_tps
+        FROM kabupaten k
+        JOIN provinsi p ON k.id_provinsi = p.id
+        LEFT JOIN settings_kabupaten sk ON k.id = sk.id_kabupaten
+        ORDER BY p.nama, k.nama
+    ";
+    $result = $conn->query($query);
+    return $result->fetch_all(MYSQLI_ASSOC);
 }
 
 /**
@@ -171,4 +217,130 @@ function formatNumber($number) {
 function calculatePercentage($value, $total) {
     if ($total == 0) return 0;
     return round(($value / $total) * 100, 2);
+}
+
+/**
+ * Generate nama pemilihan otomatis berdasarkan jenis pemilihan dan wilayah
+ * @param string $jenisPemilihan Jenis pemilihan (pilpres, pilgub, pilbup, pilwalkot, pilkades)
+ * @param int|null $idProvinsi ID Provinsi
+ * @param int|null $idKabupaten ID Kabupaten
+ * @param int|null $idDesa ID Desa (untuk pilkades)
+ * @param int|null $tahun Tahun pemilihan
+ * @return string Nama pemilihan lengkap
+ */
+function generateNamaPemilihan($jenisPemilihan, $idProvinsi = null, $idKabupaten = null, $idDesa = null, $tahun = null) {
+    $conn = getConnection();
+    $tahun = $tahun ?? date('Y');
+    
+    // Label jenis pemilihan
+    $jenisPemilihanLabel = [
+        'pilpres' => 'PEMILIHAN PRESIDEN',
+        'pilgub' => 'PILKADA PROVINSI',
+        'pilbup' => 'PILKADA KABUPATEN',
+        'pilwalkot' => 'PILKADA KOTA',
+        'pilkades' => 'PILKADES'
+    ];
+    
+    $label = $jenisPemilihanLabel[$jenisPemilihan] ?? 'PEMILIHAN';
+    $namaWilayah = '';
+    
+    switch ($jenisPemilihan) {
+        case 'pilpres':
+            $namaWilayah = 'INDONESIA';
+            break;
+            
+        case 'pilgub':
+            if ($idProvinsi) {
+                $stmt = $conn->prepare("SELECT nama FROM provinsi WHERE id = ?");
+                $stmt->bind_param("i", $idProvinsi);
+                $stmt->execute();
+                $result = $stmt->get_result()->fetch_assoc();
+                $namaWilayah = strtoupper($result['nama'] ?? '');
+            }
+            break;
+            
+        case 'pilbup':
+        case 'pilwalkot':
+            if ($idKabupaten) {
+                $stmt = $conn->prepare("SELECT nama FROM kabupaten WHERE id = ?");
+                $stmt->bind_param("i", $idKabupaten);
+                $stmt->execute();
+                $result = $stmt->get_result()->fetch_assoc();
+                $namaWilayah = strtoupper($result['nama'] ?? '');
+            }
+            break;
+            
+        case 'pilkades':
+            if ($idDesa) {
+                $stmt = $conn->prepare("
+                    SELECT d.nama as nama_desa, kc.nama as nama_kecamatan, k.nama as nama_kabupaten
+                    FROM desa d
+                    JOIN kecamatan kc ON d.id_kecamatan = kc.id
+                    JOIN kabupaten k ON kc.id_kabupaten = k.id
+                    WHERE d.id = ?
+                ");
+                $stmt->bind_param("i", $idDesa);
+                $stmt->execute();
+                $result = $stmt->get_result()->fetch_assoc();
+                if ($result) {
+                    $namaWilayah = strtoupper($result['nama_desa']) . ' KEC. ' . strtoupper($result['nama_kecamatan']);
+                }
+            }
+            break;
+    }
+    
+    return trim("$label $namaWilayah $tahun");
+}
+
+/**
+ * Get nama pemilihan from settings (otomatis generate jika kosong)
+ * @param array|null $settings Settings array (optional, jika tidak diberikan akan di-fetch)
+ * @return string Nama pemilihan
+ */
+function getNamaPemilihan($settings = null) {
+    if ($settings === null) {
+        $settings = getSettings();
+    }
+    
+    // Generate otomatis berdasarkan jenis pemilihan dan wilayah aktif
+    return generateNamaPemilihan(
+        $settings['jenis_pemilihan'] ?? 'pilbup',
+        $settings['id_provinsi_aktif'] ?? null,
+        $settings['id_kabupaten_aktif'] ?? null,
+        $settings['id_desa_aktif'] ?? null,
+        $settings['tahun_pemilihan'] ?? date('Y')
+    );
+}
+
+/**
+ * Get nama pemilihan for specific kabupaten
+ * @param int $idKabupaten ID Kabupaten
+ * @param array|null $settingsKab Settings kabupaten (optional)
+ * @return string Nama pemilihan
+ */
+function getNamaPemilihanKabupaten($idKabupaten, $settingsKab = null) {
+    if ($settingsKab === null) {
+        $settingsKab = getSettingsKabupaten($idKabupaten);
+    }
+    
+    $jenisPemilihan = $settingsKab['jenis_pemilihan'] ?? 'pilbup';
+    $tahun = $settingsKab['tahun_pemilihan'] ?? date('Y');
+    
+    // Untuk pilkades, cari desa aktif (jika ada)
+    $idDesa = null;
+    if ($jenisPemilihan === 'pilkades') {
+        // Ambil dari settings global untuk desa aktif
+        $globalSettings = getSettings();
+        $idDesa = $globalSettings['id_desa_aktif'] ?? null;
+    }
+    
+    // Ambil id provinsi dari kabupaten
+    $conn = getConnection();
+    $stmt = $conn->prepare("SELECT id_provinsi FROM kabupaten WHERE id = ?");
+    $stmt->bind_param("i", $idKabupaten);
+    $stmt->execute();
+    $kab = $stmt->get_result()->fetch_assoc();
+    $idProvinsi = $kab['id_provinsi'] ?? null;
+    
+    return generateNamaPemilihan($jenisPemilihan, $idProvinsi, $idKabupaten, $idDesa, $tahun);
 }
